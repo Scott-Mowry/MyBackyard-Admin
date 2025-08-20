@@ -6,6 +6,7 @@ import {
   createWebHashHistory,
 } from 'vue-router'
 import routes from './routes'
+import { useAdminAuthStore } from 'stores/adminAuth'
 
 /*
  * If not building with SSR mode, you can
@@ -31,6 +32,31 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     // quasar.conf.js -> build -> vueRouterMode
     // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
+  })
+
+  Router.beforeEach((to, from, next) => {
+    const authStore = useAdminAuthStore()
+    const publicPages = ['/auth/login']
+    const isPublic = publicPages.includes(to.path)
+    const isLoggedIn = authStore.isAuthenticated
+
+    // Check if user is authenticated and has Admin role
+    if (!isLoggedIn && !isPublic) {
+      next({ path: '/auth/login' })
+    } else if (isLoggedIn && isPublic) {
+      next({ path: '/dashboard' })
+    } else if (isLoggedIn && !isPublic) {
+      // Additional check: ensure user has Admin role
+      if (authStore.user && authStore.user.role !== 'Admin') {
+        // User is logged in but not an Admin, redirect to login
+        authStore.adminLogout()
+        next({ path: '/auth/login' })
+      } else {
+        next()
+      }
+    } else {
+      next()
+    }
   })
 
   return Router
