@@ -8,11 +8,11 @@ import axios from 'axios'
 // "export default () => {}" function below (which runs individually
 // for each client)
 const api = axios.create({
-  // baseURL: process.env.API_BASE_URL || 'http://localhost:8006',
+  baseURL: process.env.API_BASE_URL || 'http://localhost:8003',
   // baseURL: process.env.API_BASE_URL || 'https://admin-staging.mybackyardusa.com/',
   // baseURL: process.env.API_BASE_URL || 'https://backyardusa.janlordluga.com/v1',
   // baseURL: 'https://admin.mybackyardusa.com/public',
-  baseURL: 'https://admin.mybackyardusa.com/public',
+  // baseURL: 'https://admin.mybackyardusa.com/public',
 })
 
 // Add token to requests if available

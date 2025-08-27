@@ -12,7 +12,7 @@
           </div>
           <div class="col-auto">
             <q-btn
-              label="Assign Subscription"
+              label="Apply Promo Code"
               color="primary"
               icon="subscriptions"
               @click="showAssignSubscriptionDialog = true"
@@ -218,7 +218,7 @@
     <q-dialog v-model="showAssignSubscriptionDialog" persistent>
       <q-card style="min-width: 600px">
         <q-card-section class="q-pb-none">
-          <h3 class="text-h6 text-weight-bold text-grey-9">Assign Subscription</h3>
+          <h3 class="text-h6 text-weight-bold text-grey-9">Apply Promo Code</h3>
         </q-card-section>
 
         <q-card-section>
@@ -266,6 +266,26 @@
               </template>
             </q-select>
 
+            <q-select
+              v-model="assignSubscriptionForm.promo_code_id"
+              :options="promoCodeOptions"
+              label="Select Promo Code (Free Trial)"
+              outlined
+              dense
+              option-label="label"
+              option-value="value"
+              emit-value
+              map-options
+              :rules="[(val) => !!val || 'Promo code selection is required']"
+              @update:model-value="onPromoCodeSelect"
+            >
+              <template v-slot:no-option>
+                <q-item>
+                  <q-item-section class="text-grey"> No promo codes found </q-item-section>
+                </q-item>
+              </template>
+            </q-select>
+
             <q-input
               v-model="assignSubscriptionForm.sub_id"
               label="Subscription ID (Auto-filled from selection above)"
@@ -284,7 +304,7 @@
 
             <div class="q-gutter-sm">
               <q-btn
-                label="Assign Subscription"
+                label="Apply Promo Code"
                 type="submit"
                 color="primary"
                 :loading="assigningSubscription"
@@ -359,6 +379,7 @@ const assignSubscriptionForm = reactive({
   user_id: '',
   subscription_id: '',
   sub_id: '',
+  promo_code_id: '',
 })
 
 // User options for subscription assignment dialog
@@ -367,6 +388,9 @@ const filteredUserOptions = ref([])
 
 // Subscription options for assignment dialog
 const subscriptionOptions = ref([])
+
+// Promo code options for assignment dialog
+const promoCodeOptions = ref([])
 
 // Initialize user options when users are loaded
 const initializeUserOptions = async () => {
@@ -400,12 +424,41 @@ const loadSubscriptions = async () => {
   }
 }
 
+// Load available promo codes
+const loadPromoCodes = async () => {
+  try {
+    const response = await api.get('/api/v2/admin/business-promocodes')
+    if (response.data.status) {
+      // Filter only free trial promo codes
+      const freeTrialPromoCodes = response.data.data.filter(
+        (promoCode) => promoCode.discount_type === 'free_trial' && promoCode.status === 'active',
+      )
+
+      promoCodeOptions.value = freeTrialPromoCodes.map((promoCode) => ({
+        label: `${promoCode.code} - ${promoCode.name} (${promoCode.free_days} days free trial)`,
+        value: promoCode.id,
+      }))
+    }
+  } catch (error) {
+    console.error('Failed to load promo codes:', error)
+  }
+}
+
 // Handle subscription selection
 const onSubscriptionSelect = (subscriptionId) => {
   if (subscriptionId) {
     assignSubscriptionForm.sub_id = subscriptionId
   } else {
     assignSubscriptionForm.sub_id = ''
+  }
+}
+
+// Handle promo code selection
+const onPromoCodeSelect = (promoCodeId) => {
+  if (promoCodeId) {
+    assignSubscriptionForm.promo_code_id = promoCodeId
+  } else {
+    assignSubscriptionForm.promo_code_id = ''
   }
 }
 
@@ -606,23 +659,25 @@ async function submitAssignSubscription() {
     assigningSubscription.value = true
 
     // Debug: Log the form data being sent
-    console.log('Sending assign subscription data:', {
+    console.log('Sending apply promo code data:', {
       user_id: assignSubscriptionForm.user_id,
-      sub_id: assignSubscriptionForm.sub_id,
+      subscription_id: assignSubscriptionForm.subscription_id,
+      promo_code_id: assignSubscriptionForm.promo_code_id,
     })
 
-    const response = await api.post('/api/v2/admin/assignSubscription', {
+    const response = await api.post('/api/v2/admin/applyPromoCode', {
       user_id: assignSubscriptionForm.user_id,
-      sub_id: assignSubscriptionForm.sub_id,
+      subscription_id: assignSubscriptionForm.subscription_id,
+      promo_code_id: assignSubscriptionForm.promo_code_id,
     })
 
     // Debug: Log the response
-    console.log('Assign subscription response:', response.data)
+    console.log('Apply promo code response:', response.data)
 
     if (response.data.status) {
       $q.notify({
         type: 'positive',
-        message: 'Subscription assigned successfully!',
+        message: 'Promo code applied successfully!',
         position: 'top',
       })
       closeAssignSubscriptionDialog()
@@ -630,16 +685,15 @@ async function submitAssignSubscription() {
     } else {
       $q.notify({
         type: 'negative',
-        message: response.data.message || 'Failed to assign subscription',
+        message: response.data.message || 'Failed to apply promo code',
         position: 'top',
       })
     }
   } catch (error) {
-    console.error('Error assigning subscription:', error)
+    console.error('Error applying promo code:', error)
     $q.notify({
       type: 'negative',
-      message:
-        error.response?.data?.message || 'An error occurred while assigning the subscription',
+      message: error.response?.data?.message || 'An error occurred while applying the promo code',
       position: 'top',
     })
   } finally {
@@ -652,6 +706,7 @@ function closeAssignSubscriptionDialog() {
   assignSubscriptionForm.user_id = ''
   assignSubscriptionForm.subscription_id = ''
   assignSubscriptionForm.sub_id = ''
+  assignSubscriptionForm.promo_code_id = ''
 }
 
 // Lifecycle
@@ -664,6 +719,7 @@ onMounted(async () => {
     await loadSubscribedUsers()
     await initializeUserOptions() // Initialize user options for subscription assignment dialog
     await loadSubscriptions() // Load subscriptions for the dialog
+    await loadPromoCodes() // Load promo codes for the dialog
   } else {
     router.push('/auth/login')
   }
