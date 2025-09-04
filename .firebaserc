@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "my-backyard-usa"
+  },
+  "targets": {
+    "my-backyard-usa": {
+      "hosting": {
+        "admin-prod": [
+          "admin-mybackyardusa"
+        ],
+        "admin-staging": [
+          "staging-admin-mybackyardusa"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
